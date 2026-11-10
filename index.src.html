@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>독서단 미사 배정</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@700&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* 방향: 전례력 연중시기의 짙은 녹색을 기준색으로, 주말 미사는 보라 계열로 구분. 상단 도구줄 + 월간 그리드 + 우측 편집 패널 */
+:root {
+  --bg: #f3f5f4;
+  --surface: #ffffff;
+  --ink: #18221e;
+  --muted: #5f6b66;
+  --line: #dde3e0;
+  --accent: #2c5f4a;
+  --accent-soft: #e3eee8;
+  --weekend: #6a4c93;
+  --weekend-soft: #efe9f6;
+  --danger: #b4371f;
+  --danger-soft: #fbe9e4;
+  --hl: #f5d76e;
+  --font-display: "Gowun Batang", "Nanum Myeongjo", serif;
+  --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121715; --surface: #1a211e; --ink: #e6ece9; --muted: #9aa7a1; --line: #2c3632;
+    --accent: #7cc3a2; --accent-soft: #1f3129; --weekend: #b9a0e0; --weekend-soft: #2a2236;
+    --danger: #f08a6f; --danger-soft: #3a211b; --hl: #8a7424; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121715; --surface: #1a211e; --ink: #e6ece9; --muted: #9aa7a1; --line: #2c3632;
+  --accent: #7cc3a2; --accent-soft: #1f3129; --weekend: #b9a0e0; --weekend-soft: #2a2236;
+  --danger: #f08a6f; --danger-soft: #3a211b; --hl: #8a7424; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 14px/1.5 var(--font-body); }
+button, input, select, textarea { font: inherit; color: inherit; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+.num { font-variant-numeric: tabular-nums; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+header.top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: 14px 20px; background: var(--surface); border-bottom: 1px solid var(--line); }
+header.top h1 { font-family: var(--font-display); font-size: 20px; letter-spacing: -0.01em; }
+nav.tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+nav.tabs a { padding: 6px 12px; border-radius: 8px; color: var(--muted); text-decoration: none; font-weight: 500; }
+nav.tabs a[aria-current="page"] { background: var(--accent-soft); color: var(--accent); }
+.who { margin-left: auto; font-size: 12px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+.pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 12px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
+.pill.wk { background: var(--weekend-soft); color: var(--weekend); }
+.pill.warn { background: var(--danger-soft); color: var(--danger); }
+.pill.grey { background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
+
+main { padding: 16px 20px 48px; max-width: 1400px; margin: 0 auto; }
+#banners { display: grid; gap: 8px; margin-bottom: 12px; }
+.banner { padding: 10px 14px; border-radius: 10px; background: var(--accent-soft); color: var(--ink); }
+.banner.warn { background: var(--danger-soft); }
+.banner a { color: var(--accent); font-weight: 600; }
+.banner b { color: var(--accent); }
+.banner.warn b { color: var(--danger); }
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 12px; }
+.toolbar .grow { flex: 1; }
+.monthnav { display: flex; align-items: center; gap: 6px; }
+.monthnav h2 { font-family: var(--font-display); font-size: 22px; min-width: 150px; text-align: center; }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 6px 12px; cursor: pointer; font-weight: 500; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.btn.danger { color: var(--danger); border-color: var(--danger); }
+.btn.icon { padding: 6px 10px; }
+.btn:disabled { opacity: .5; cursor: default; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; background: var(--surface); padding: 6px 12px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+select, input[type=text], input[type=time], input[type=date], input[type=number], input[type=search], textarea { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 6px 10px; }
+
+.summary { display: flex; flex-wrap: wrap; gap: 8px 20px; padding: 10px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 12px; font-size: 13px; color: var(--muted); }
+.summary b { color: var(--ink); font-size: 15px; }
+.summary .bad b { color: var(--danger); }
+
+/* 월간 캘린더 */
+.cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--line); gap: 1px; }
+.cal .dow { background: var(--surface); padding: 6px 8px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.cal .dow.sun { color: var(--danger); }
+.cal .dow.sat { color: var(--weekend); }
+.day { background: var(--surface); min-height: 110px; padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+.day.out { background: var(--bg); }
+.day.today .dnum { background: var(--accent); color: var(--surface); border-radius: 999px; padding: 0 7px; }
+.dhead { display: flex; align-items: center; justify-content: space-between; }
+.dnum { font-weight: 600; font-size: 13px; }
+.day.sun .dnum { color: var(--danger); }
+.day.today.sun .dnum { color: var(--surface); }
+.addbtn { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 16px; line-height: 1; padding: 0 4px; border-radius: 4px; opacity: .6; }
+.addbtn:hover { opacity: 1; background: var(--accent-soft); color: var(--accent); }
+.mass { text-align: left; border: 0; border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 4px; padding: 3px 6px; font-size: 11.5px; line-height: 1.4; cursor: pointer; width: 100%; }
+.mass.WEEKEND { border-left-color: var(--weekend); background: var(--weekend-soft); }
+.mass .t { font-weight: 600; }
+.mass .miss { color: var(--danger); font-weight: 600; }
+.mass.hasmiss { box-shadow: inset 0 0 0 1px var(--danger); }
+.mass .lock { font-size: 10px; color: var(--muted); }
+.mass.dim { opacity: .35; }
+.mass .hlname { background: var(--hl); border-radius: 3px; padding: 0 2px; }
+
+/* 목록(배정표) */
+.tablewrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+table.grid { border-collapse: collapse; width: 100%; font-size: 13px; }
+table.grid th, table.grid td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+table.grid td:first-child { white-space: nowrap; }
+table.grid th { white-space: nowrap; font-size: 12px; color: var(--muted); font-weight: 600; background: var(--bg); position: sticky; top: 0; }
+table.grid tr.click { cursor: pointer; }
+table.grid tr.click:hover td { background: var(--accent-soft); }
+table.grid tr.dsep td { border-top: 2px solid var(--line); }
+table.grid td.miss { color: var(--danger); font-weight: 600; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.muted { color: var(--muted); }
+.empty { padding: 32px; text-align: center; color: var(--muted); background: var(--surface); border: 1px dashed var(--line); border-radius: 10px; }
+.empty p { margin: 0 0 12px; }
+
+/* 모바일: 캘린더 대신 날짜별 목록 */
+.agenda { display: none; }
+@media (max-width: 760px) {
+  header.top, main { padding-left: 16px; padding-right: 16px; }
+  .cal { display: none; }
+  .agenda { display: grid; gap: 8px; }
+  .aday { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; display: grid; gap: 4px; }
+  .aday .dhead { font-weight: 600; }
+  .mass { font-size: 13px; }
+  .who { margin-left: 0; }
+}
+
+/* 패널 · 모달 */
+.overlay { position: fixed; inset: 0; background: rgba(10, 20, 15, .35); display: flex; justify-content: center; align-items: flex-start; padding: 40px 16px; overflow-y: auto; z-index: 20; }
+.overlay.side { justify-content: flex-end; padding: 0; }
+.panel { background: var(--surface); border-radius: 12px; width: min(640px, 100%); padding: 20px; display: grid; gap: 14px; box-shadow: 0 20px 40px rgba(0,0,0,.18); }
+.overlay.side .panel { border-radius: 0; width: min(420px, 100%); min-height: 100%; align-content: start; }
+.panel h3 { font-family: var(--font-display); font-size: 19px; }
+.panel .row { display: grid; gap: 4px; }
+.panel .row > label, .panel .lbl { font-size: 12px; font-weight: 600; color: var(--muted); }
+.panel .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.checks { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.checks label { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; cursor: pointer; }
+.actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.actions .left { margin-right: auto; }
+.note { font-size: 12px; color: var(--muted); }
+.note.warn { color: var(--danger); }
+.stack { display: grid; gap: 10px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 12px; }
+.card h3 { font-size: 16px; font-weight: 600; }
+.cardgrid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); align-items: start; }
+.stat3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stat3 div { background: var(--bg); border-radius: 8px; padding: 8px 10px; }
+.stat3 b { display: block; font-size: 20px; }
+.stat3 .bad b { color: var(--danger); }
+.scroll { max-height: 280px; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--surface); padding: 10px 16px; border-radius: 10px; z-index: 40; font-size: 13px; max-width: calc(100% - 32px); }
+textarea.copybox { width: 100%; min-height: 160px; font-size: 12px; }
+@media print {
+  header.top, .toolbar, #banners, .summary .noprint { display: none; }
+  body { background: #fff; }
+}
+@media (max-width: 520px) { .panel .two { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>독서단 미사 배정</h1>
+  <nav class="tabs" aria-label="화면">
+    <a href="#calendar" data-view="calendar">미사 일정</a>
+    <a href="#members" data-view="members">멤버</a>
+    <a href="#lookup" data-view="lookup">내 배정 보기</a>
+    <a href="#config" data-view="config">설정</a>
+  </nav>
+  <div class="who" id="who"><span class="pill grey">연결 중…</span></div>
+</header>
+<main>
+  <div id="banners"></div>
+  <div id="view"></div>
+</main>
+<div id="layer"></div>
+
+<script>
+/*LOGIC*/
+</script>
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const today = (() => { const d = new Date(); return ymd(d.getFullYear(), d.getMonth() + 1, d.getDate()); })();
+const [TY, TM] = today.split('-').map(Number);
+
+const S = {
+  db: null, user: null, mode: 'connecting', canWrite: true,
+  members: [], membersLoaded: false,
+  config: { templates: DEFAULT_TEMPLATES, weights: DEFAULT_WEIGHTS }, configLoaded: false,
+  y: TY, m: TM, month: { masses: [] }, monthLoaded: false, monthStale: false,
+  view: 'calendar', calMode: 'grid', highlight: '', memberQ: '', memberRole: '', memberSlot: '',
+  lookupId: '', lookupData: null, loadError: ''
+};
+const local = {}; // DB가 없을 때 쓰는 임시 저장소
+
+/* ---------- 데이터 접근 ---------- */
+const queues = {};
+function writeDoc(path, data) {
+  if (!S.db) { local[path] = JSON.parse(JSON.stringify(data)); return Promise.resolve(); }
+  const run = (queues[path] || Promise.resolve()).then(() => S.db.doc(path).set(data));
+  queues[path] = run.catch(() => {});
+  return run.catch(e => { onWriteError(e); throw e; });
+}
+async function readDoc(path) {
+  if (!S.db) return local[path] || null;
+  const snap = await S.db.doc(path).get();
+  return snap.exists ? snap.data() : null;
+}
+function onWriteError(e) {
+  const code = e && e.code;
+  if (code === 'invalid_argument' || code === 'revoked' || code === 'not_granted') {
+    S.canWrite = false; renderWho(); render();
+    toast('저장 권한이 없습니다. 보기 전용으로 전환합니다.');
+  } else if (code === 'quota_exceeded') toast('저장 공간 한도에 도달했습니다. 오래된 달의 일정을 정리해 주세요.');
+  else toast('저장하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+}
+const monthPath = (y, m) => 'months/' + ymKey(y, m);
+
+let unsubMonth = null, monthTimer = null;
+function subscribeMonth() {
+  if (unsubMonth) { unsubMonth(); unsubMonth = null; }
+  clearTimeout(monthTimer);
+  S.monthLoaded = false; S.monthStale = false; S.month = { masses: [] };
+  if (!S.db) { S.month = local[monthPath(S.y, S.m)] || { masses: [] }; S.monthLoaded = true; render(); return; }
+  monthTimer = setTimeout(() => { S.monthStale = true; renderBanners(); }, 10000);
+  unsubMonth = S.db.doc(monthPath(S.y, S.m)).onSnapshot(snap => {
+    S.month = snap.exists ? { masses: [], ...snap.data() } : { masses: [] };
+    S.month.masses = sortMasses([...(S.month.masses || [])].map(x => ({ ...x })));
+    S.monthLoaded = true;
+    if (!snap.metadata.fromCache) { clearTimeout(monthTimer); S.monthStale = false; }
+    render();
+  }, err => { clearTimeout(monthTimer); S.monthLoaded = true; S.loadError = '일정을 불러오지 못했습니다 (' + err.code + ').'; render(); });
+}
+function subscribeStatic() {
+  const t = setTimeout(() => { if (!S.membersLoaded) { S.loadError = '데이터에 아직 연결되지 않았습니다. 네트워크를 확인해 주세요.'; renderBanners(); } }, 10000);
+  S.db.doc('app/members').onSnapshot(snap => {
+    S.members = snap.exists ? (snap.data().list || []).map(x => ({ ...x })) : [];
+    S.membersLoaded = true; if (!snap.metadata.fromCache) { clearTimeout(t); S.loadError = ''; }
+    render();
+  }, err => { clearTimeout(t); S.membersLoaded = true; S.loadError = '멤버를 불러오지 못했습니다 (' + err.code + ').'; render(); });
+  S.db.doc('app/config').onSnapshot(snap => {
+    const d = snap.exists ? snap.data() : {};
+    S.config = { templates: d.templates && d.templates.length ? d.templates : DEFAULT_TEMPLATES, weights: { ...DEFAULT_WEIGHTS, ...(d.weights || {}) } };
+    S.configLoaded = true; render();
+  }, () => { S.configLoaded = true; });
+}
+function saveMembers(list) { S.members = list; render(); return writeDoc('app/members', { list }); }
+function saveMonth(masses, y = S.y, m = S.m) {
+  const doc = { ...(y === S.y && m === S.m ? S.month : {}), masses: sortMasses(masses.map(x => ({ ...x }))), updatedAt: new Date().toISOString() };
+  if (y === S.y && m === S.m) { S.month = doc; render(); }
+  return writeDoc(monthPath(y, m), doc);
+}
+
+/* ---------- 멤버 헬퍼 ---------- */
+const liveMembers = () => S.members.filter(m => !m.deleted);
+const memberById = id => S.members.find(m => m.id === id);
+const nameOf = id => { const m = memberById(id); return m ? (m.deleted ? m.name + '(삭제됨)' : m.name) : '(알 수 없음)'; };
+const sortByName = arr => arr.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+function monthCounts(masses) {
+  const c = {};
+  for (const ms of masses) for (const p of positionsOf(ms)) { const id = ms[p.field]; if (id) { c[id] ||= { wd: 0, we: 0 }; ms.type === 'WEEKEND' ? c[id].we++ : c[id].wd++; } }
+  return c;
+}
+const canEdit = () => S.canWrite;
+
+/* ---------- 공통 UI ---------- */
+function toast(msg) {
+  const el = document.createElement('div'); el.className = 'toast'; el.textContent = msg; el.setAttribute('role', 'status');
+  document.body.appendChild(el); setTimeout(() => el.remove(), 3200);
+}
+function openLayer(html, side = false) {
+  $('#layer').innerHTML = `<div class="overlay${side ? ' side' : ''}" data-close-bg="1"><div class="panel" role="dialog" aria-modal="true">${html}</div></div>`;
+  const f = $('#layer').querySelector('input:not([type=hidden]), select, textarea, button'); if (f) f.focus();
+}
+function closeLayer() { $('#layer').innerHTML = ''; }
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#layer').innerHTML) closeLayer(); });
+$('#layer').addEventListener('mousedown', e => { if (e.target.dataset && e.target.dataset.closeBg) closeLayer(); });
+function confirmBox(title, body, okLabel, onOk, danger = true) {
+  openLayer(`<h3>${esc(title)}</h3><div>${body}</div><div class="actions"><button class="btn" data-act="close">취소</button><button class="btn ${danger ? 'danger' : 'primary'}" id="cfOk">${esc(okLabel)}</button></div>`);
+  $('#cfOk').onclick = async () => { $('#cfOk').disabled = true; try { await onOk(); } finally { closeLayer(); } };
+}
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); toast('복사했습니다. 단톡방 등에 붙여넣으세요.'); }
+  catch { openLayer(`<h3>복사할 내용</h3><p class="note">자동 복사가 막혀 있습니다. 아래 내용을 전체 선택해 복사하세요.</p><textarea class="copybox" id="cpb" readonly>${esc(text)}</textarea><div class="actions"><button class="btn" data-act="close">닫기</button></div>`); $('#cpb').select(); }
+}
+function memberOption(m, extra = '') { return `<option value="${esc(m.id)}">${esc(m.name)}${m.baptismalName ? ' (' + esc(m.baptismalName) + ')' : ''}${extra}</option>`; }
+
+/* ---------- 상단 · 배너 ---------- */
+function renderWho() {
+  const el = $('#who');
+  if (S.mode === 'connecting') { el.innerHTML = '<span class="pill grey">연결 중…</span>'; return; }
+  el.innerHTML = S.mode === 'local' ? '<span class="pill warn">미리보기 · 저장 안 됨</span>' : (S.canWrite ? '<span class="pill">관리자 · 편집 가능</span>' : '<span class="pill grey">보기 전용</span>');
+}
+function renderBanners() {
+  const b = [];
+  if (S.mode === 'local') b.push(`<div class="banner warn"><b>저장되지 않는 미리보기입니다.</b> claude.ai에 로그인한 상태로 이 페이지를 열면 데이터가 저장되고 다른 관리자와 공유됩니다.</div>`);
+  if (S.loadError) b.push(`<div class="banner warn"><b>${esc(S.loadError)}</b></div>`);
+  if (S.monthStale) b.push(`<div class="banner warn"><b>일정이 최신이 아닐 수 있습니다.</b> 서버 응답을 기다리는 중입니다.</div>`);
+  if (!S.canWrite && S.mode === 'db') b.push(`<div class="banner">보기 전용으로 열려 있습니다. 배정 변경은 관리자에게 요청하세요.</div>`);
+  if (canEdit() && S.members.some(m => m.sample && !m.deleted)) b.push(`<div class="banner">예시 멤버 ${S.members.filter(m => m.sample && !m.deleted).length}명이 들어 있습니다. 미사 자동생성과 봉사자 자동배정을 눌러 시험해 보세요. 실제 멤버를 등록한 뒤 <a href="#config">설정</a>에서 한 번에 지울 수 있습니다.</div>`);
+  $('#banners').innerHTML = b.join('');
+}
+
+/* ---------- 라우팅 ---------- */
+const VIEWS = ['calendar', 'members', 'lookup', 'config'];
+function route() { const h = location.hash.slice(1); S.view = VIEWS.includes(h) ? h : 'calendar'; render(); }
+window.addEventListener('hashchange', route);
+
+function render() {
+  renderBanners();
+  document.querySelectorAll('nav.tabs a').forEach(a => { if (a.dataset.view === S.view) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+  const keep = document.activeElement && document.activeElement.id;
+  ({ calendar: renderCalendar, members: renderMembers, lookup: renderLookup, config: renderConfig })[S.view]();
+  if (keep && document.getElementById(keep) && keep.startsWith('keep-')) { const el = document.getElementById(keep); el.focus(); if (el.setSelectionRange && el.value) el.setSelectionRange(el.value.length, el.value.length); }
+}
+
+/* ---------- 미사 일정 (캘린더) ---------- */
+function massHtml(ms) {
+  const hl = S.highlight;
+  const n = id => id ? `<span class="${id === hl ? 'hlname' : ''}">${esc(nameOf(id))}</span>` : '<span class="miss">미배정</span>';
+  const rd = ms.type === 'WEEKEND' ? `${n(ms.reader1Id)}, ${n(ms.reader2Id)}` : n(ms.reader1Id);
+  const ids = positionsOf(ms).map(p => ms[p.field]);
+  const miss = ids.some(x => !x);
+  const dim = hl && !ids.includes(hl);
+  return `<button class="mass ${ms.type}${miss ? ' hasmiss' : ''}${dim ? ' dim' : ''}" data-mass="${esc(ms.id)}" title="${esc(ms.name)}"><span class="t">${esc(timeLabel(ms.time))}</span> 해설(${n(ms.commentatorId)}), 독서(${rd})${ms.locked ? ' <span class="lock" title="수동 배정 고정">고정</span>' : ''}</button>`;
+}
+function renderCalendar() {
+  const masses = S.month.masses || [];
+  const byDate = {}; for (const ms of masses) (byDate[ms.date] ||= []).push(ms);
+  const open = masses.reduce((s, ms) => s + positionsOf(ms).filter(p => !ms[p.field]).length, 0);
+  const counts = monthCounts(masses);
+  const cons = considered(S.members);
+  const totals = cons.map(m => (counts[m.id]?.wd || 0) + (counts[m.id]?.we || 0));
+  const range = totals.length ? `${Math.min(...totals)}~${Math.max(...totals)}회` : '-';
+  const ed = canEdit();
+  let body;
+  if (!S.monthLoaded) body = '<div class="empty"><p>일정을 불러오는 중입니다…</p></div>';
+  else if (!masses.length) body = `<div class="empty"><p>${S.y}년 ${S.m}월 미사 일정이 아직 없습니다.</p>${ed ? '<button class="btn primary" data-act="gen">이 달 미사 자동생성</button>' : '<p class="note">관리자가 일정을 만들면 여기에 표시됩니다.</p>'}</div>`;
+  else if (S.calMode === 'list') body = listHtml(masses);
+  else body = gridHtml(byDate) + agendaHtml(byDate);
+  const opts = sortByName(liveMembers().filter(m => m.active !== false)).map(m => memberOption(m)).join('');
+  $('#view').innerHTML = `
+  <div class="toolbar">
+    <div class="monthnav"><button class="btn icon" data-act="prev" aria-label="이전 달">◀</button><h2 class="num">${S.y}년 ${S.m}월</h2><button class="btn icon" data-act="next" aria-label="다음 달">▶</button><button class="btn" data-act="thismonth">이번 달</button></div>
+    <div class="seg" role="group" aria-label="보기 방식"><button data-act="mode-grid" aria-pressed="${S.calMode === 'grid'}">캘린더</button><button data-act="mode-list" aria-pressed="${S.calMode === 'list'}">배정표</button></div>
+    <select id="hlSel" aria-label="멤버 강조"><option value="">멤버 강조: 전체</option>${opts}</select>
+    <span class="grow"></span>
+    ${ed ? '<button class="btn" data-act="gen">미사 자동생성</button><button class="btn primary" data-act="assign">봉사자 자동배정</button>' : ''}
+  </div>
+  ${masses.length ? `<div class="summary num"><span>미사 <b>${masses.length}</b>건 (평일 ${masses.filter(x => x.type !== 'WEEKEND').length} · 주말 ${masses.filter(x => x.type === 'WEEKEND').length})</span><span class="${open ? 'bad' : ''}">빈 자리 <b>${open}</b></span><span>1인당 배정 <b>${range}</b> <span class="muted">(활동 멤버 ${cons.length}명)</span></span>${S.calMode === 'list' ? '<span class="grow"></span><button class="btn noprint" data-act="copylist">배정표 텍스트 복사</button>' : ''}</div>` : ''}
+  ${body}`;
+  $('#hlSel').value = S.highlight;
+}
+function gridHtml(byDate) {
+  const first = dowOf(ymd(S.y, S.m, 1)); const dim = daysInMonth(S.y, S.m);
+  const cells = [];
+  ['일', '월', '화', '수', '목', '금', '토'].forEach((d, i) => cells.push(`<div class="dow ${i === 0 ? 'sun' : i === 6 ? 'sat' : ''}">${d}</div>`));
+  for (let i = 0; i < first; i++) cells.push('<div class="day out"></div>');
+  for (let d = 1; d <= dim; d++) {
+    const date = ymd(S.y, S.m, d); const w = dowOf(date);
+    cells.push(`<div class="day${w === 0 ? ' sun' : ''}${date === today ? ' today' : ''}"><div class="dhead"><span class="dnum num">${d}</span>${canEdit() ? `<button class="addbtn" data-add="${date}" aria-label="${d}일 미사 추가" title="미사 추가">+</button>` : ''}</div>${(byDate[date] || []).map(massHtml).join('')}</div>`);
+  }
+  while ((cells.length - 7) % 7) cells.push('<div class="day out"></div>');
+  return `<div class="cal">${cells.join('')}</div>`;
+}
+function agendaHtml(byDate) {
+  return `<div class="agenda">${Object.keys(byDate).sort().map(date => `<div class="aday"><div class="dhead"><span>${Number(date.slice(8))}일 (${DOW_KO[dowOf(date)]})</span>${canEdit() ? `<button class="addbtn" data-add="${date}" aria-label="미사 추가">+</button>` : ''}</div>${byDate[date].map(massHtml).join('')}</div>`).join('')}</div>`;
+}
+function listHtml(masses) {
+  let prev = '';
+  const rows = masses.map(ms => {
+    const sep = ms.date !== prev; prev = ms.date;
+    const c = id => id ? `<td>${esc(nameOf(id))}</td>` : '<td class="miss">미배정</td>';
+    return `<tr class="click${sep ? ' dsep' : ''}" data-mass="${esc(ms.id)}"><td class="num">${sep ? `${Number(ms.date.slice(5, 7))}/${Number(ms.date.slice(8))} (${DOW_KO[dowOf(ms.date)]})` : ''}</td><td>${esc(timeLabel(ms.time))}</td><td>${esc(ms.name)} <span class="pill${ms.type === 'WEEKEND' ? ' wk' : ''}">${ms.type === 'WEEKEND' ? '주말' : '평일'}</span></td>${c(ms.commentatorId)}${c(ms.reader1Id)}${ms.type === 'WEEKEND' ? c(ms.reader2Id) : '<td class="muted">-</td>'}</tr>`;
+  }).join('');
+  return `<div class="tablewrap"><table class="grid"><thead><tr><th>날짜</th><th>시간</th><th>미사</th><th>해설</th><th>제1독서</th><th>제2독서</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function listText(masses) {
+  const lines = [`[${S.y}년 ${S.m}월 독서단 미사 배정표]`]; let prev = '';
+  for (const ms of masses) {
+    if (ms.date !== prev) { lines.push('', `■ ${Number(ms.date.slice(5, 7))}/${Number(ms.date.slice(8))} (${DOW_KO[dowOf(ms.date)]})`); prev = ms.date; }
+    lines.push('  ' + massLine(ms, nameOf));
+  }
+  return lines.join('\n');
+}
+
+/* 미사 편집 패널 */
+function eligibilityNote(m, ms, role, field) {
+  if (!(m.roles || []).includes(role)) return ' — 역할 아님';
+  if (!(m.availability || []).includes(ms.slot)) return ' — 시간대 불가';
+  if ((m.absences || []).includes(ms.date)) return ' — 불참일';
+  const same = (S.month.masses || []).some(o => o.date === ms.date && positionsOf(o).some(p => o[p.field] === m.id && !(o.id === ms.id && p.field === field)));
+  if (same) return ' — 같은 날 배정됨';
+  return '';
+}
+function openMass(id, newDate) {
+  const ed = canEdit();
+  const existing = id ? (S.month.masses || []).find(x => x.id === id) : null;
+  if (!existing && !newDate) return;
+  const w = newDate ? dowOf(newDate) : null;
+  const ms = existing ? { ...existing } : { id: makeId(), date: newDate, time: w === 0 ? '07:00' : '10:00', name: w === 0 ? '주일미사' : '평일미사', type: w === 0 ? 'WEEKEND' : 'WEEKDAY', slot: w === 0 ? 'WEEKEND' : 'WEEKDAY_1000', commentatorId: null, reader1Id: null, reader2Id: null, locked: false, autoGenerated: false };
+  const draw = () => {
+    const pos = positionsOf(ms);
+    const sel = p => {
+      const all = sortByName(liveMembers().filter(m => m.active !== false || m.id === ms[p.field]));
+      const ok = [], no = [];
+      for (const m of all) { const note = eligibilityNote(m, ms, p.role, p.field); (note ? no : ok).push(memberOption(m, note)); }
+      return `<div class="row"><label for="f-${p.field}">${p.label}</label><select id="f-${p.field}" ${ed ? '' : 'disabled'}><option value="">미배정</option>${ok.length ? `<optgroup label="배정 가능">${ok.join('')}</optgroup>` : ''}${no.length ? `<optgroup label="조건 안 맞음">${no.join('')}</optgroup>` : ''}</select></div>`;
+    };
+    const ids = pos.map(p => ms[p.field]).filter(Boolean);
+    const warns = [];
+    for (const id of ids) { const m = memberById(id); const sp = m && m.spouseId && memberById(m.spouseId); if (sp && !sp.deleted && sp.active !== false && !ids.includes(sp.id)) warns.push(`${m.name} 님의 배우자 ${sp.name} 님이 이 미사에 없습니다 (부부독서 원칙).`); }
+    for (const p of pos) { const id = ms[p.field]; if (!id) continue; const m = memberById(id); const note = m && eligibilityNote(m, ms, p.role, p.field); if (note) warns.push(`${m.name}: ${p.label}${note}`); }
+    $('#layer .panel').innerHTML = `
+      <h3>${existing ? (ed ? '미사 수정' : '미사 정보') : '미사 추가'}</h3>
+      <div class="two"><div class="row"><label for="f-date">날짜</label><input type="date" id="f-date" value="${esc(ms.date)}" ${ed ? '' : 'disabled'}></div><div class="row"><label for="f-time">시간</label><input type="time" id="f-time" value="${esc(ms.time)}" ${ed ? '' : 'disabled'}></div></div>
+      <div class="row"><label for="f-name">미사명</label><input type="text" id="f-name" value="${esc(ms.name)}" ${ed ? '' : 'disabled'}></div>
+      <div class="two"><div class="row"><label for="f-type">구분</label><select id="f-type" ${ed ? '' : 'disabled'}><option value="WEEKDAY">평일 (해설 1, 독서 1)</option><option value="WEEKEND">주말 (해설 1, 독서 2)</option></select></div>
+      <div class="row"><label for="f-slot">봉사 가능 시간대 기준</label><select id="f-slot" ${ed && ms.type !== 'WEEKEND' ? '' : 'disabled'}>${SLOTS.filter(s => ms.type === 'WEEKEND' ? s === 'WEEKEND' : s !== 'WEEKEND').map(s => `<option value="${s}">${SLOT_LABEL[s]}</option>`).join('')}</select></div></div>
+      ${pos.map(sel).join('')}
+      ${warns.map(w => `<div class="note warn">${esc(w)}</div>`).join('')}
+      ${ed ? `<div class="checks"><label><input type="checkbox" id="f-lock" ${ms.locked ? 'checked' : ''}> 배정 고정 (자동배정을 다시 돌려도 바꾸지 않음)</label></div>` : ''}
+      <div class="actions">${ed && existing ? '<button class="btn danger left" id="f-del">미사 삭제</button>' : ''}<button class="btn" data-act="close">${ed ? '취소' : '닫기'}</button>${ed ? '<button class="btn primary" id="f-save">저장</button>' : ''}</div>`;
+    $('#f-type').value = ms.type; $('#f-slot').value = ms.slot;
+    for (const p of pos) $('#f-' + p.field).value = ms[p.field] || '';
+    if (!ed) return;
+    const grab = () => { ms.date = $('#f-date').value || ms.date; ms.time = $('#f-time').value || ms.time; ms.name = $('#f-name').value.trim() || ms.name; };
+    $('#f-type').onchange = e => { grab(); ms.type = e.target.value; ms.slot = ms.type === 'WEEKEND' ? 'WEEKEND' : slotFromTime(ms.time); if (ms.type !== 'WEEKEND') ms.reader2Id = null; draw(); };
+    $('#f-slot').onchange = e => { grab(); ms.slot = e.target.value; draw(); };
+    $('#f-time').onchange = () => { grab(); if (ms.type !== 'WEEKEND') ms.slot = slotFromTime(ms.time); draw(); };
+    $('#f-date').onchange = () => { grab(); draw(); };
+    for (const p of pos) $('#f-' + p.field).onchange = e => { grab(); ms[p.field] = e.target.value || null; ms.locked = true; draw(); };
+    $('#f-lock').onchange = e => { ms.locked = e.target.checked; };
+    $('#f-save').onclick = async () => {
+      grab();
+      const others = (S.month.masses || []).filter(x => x.id !== ms.id);
+      if (others.some(x => x.date === ms.date && x.time === ms.time)) { toast('같은 날짜·시간의 미사가 이미 있습니다.'); return; }
+      if (ms.date.slice(0, 7) !== ymKey(S.y, S.m)) { toast('다른 달 날짜로는 옮길 수 없습니다. 삭제 후 해당 달에서 추가해 주세요.'); return; }
+      closeLayer(); await saveMonth([...others, ms]).catch(() => {}); toast(existing ? '저장했습니다.' : '미사를 추가했습니다.');
+    };
+    if ($('#f-del')) $('#f-del').onclick = () => confirmBox('미사 삭제', `<p>${esc(Number(ms.date.slice(5, 7)) + '/' + Number(ms.date.slice(8)))} ${esc(timeLabel(ms.time))} ${esc(ms.name)}을(를) 삭제합니다. 이 미사의 배정도 함께 지워집니다.</p>`, '삭제', async () => { await saveMonth((S.month.masses || []).filter(x => x.id !== ms.id)).catch(() => {}); toast('삭제했습니다.'); });
+  };
+  openLayer('', true); draw();
+}
+
+/* 미사 자동생성 */
+function openGenerate() {
+  const ex = S.month.masses || [];
+  const autoN = generateMonth(S.y, S.m, S.config.templates, ex, 'add').added;
+  const fullN = generateMonth(S.y, S.m, S.config.templates, [], 'regen').masses.length;
+  openLayer(`<h3>${S.y}년 ${S.m}월 미사 자동생성</h3>
+    <p class="note">설정의 요일별 미사 시간표(${S.config.templates.length}개)로 이 달의 미사를 만듭니다.</p>
+    ${ex.length ? `<div class="checks" style="flex-direction:column;align-items:flex-start">
+      <label><input type="radio" name="gm" value="add" checked> 없는 미사만 추가 — ${autoN}건 추가, 기존 ${ex.length}건과 배정은 그대로</label>
+      <label><input type="radio" name="gm" value="regen"> 전체 새로 만들기 — 기존 ${ex.length}건과 배정을 모두 지우고 ${fullN}건 생성</label></div>` : `<p>미사 <b class="num">${fullN}</b>건을 만듭니다.</p>`}
+    <div class="actions"><button class="btn" data-act="close">취소</button><button class="btn primary" id="gOk">생성</button></div>`);
+  $('#gOk').onclick = async () => {
+    const mode = ex.length ? document.querySelector('input[name=gm]:checked').value : 'add';
+    const r = generateMonth(S.y, S.m, S.config.templates, ex, mode);
+    closeLayer(); await saveMonth(r.masses).catch(() => {});
+    toast(`${S.y}년 ${S.m}월 미사 ${mode === 'regen' ? r.masses.length : r.added}건을 생성했습니다.`);
+  };
+}
+
+/* 봉사자 자동배정 */
+async function openAssign() {
+  const ms = S.month.masses || [];
+  if (!ms.length) { toast('먼저 미사를 생성해 주세요.'); return; }
+  if (!considered(S.members).length) { toast('배정할 멤버가 없습니다. 멤버 탭에서 먼저 등록해 주세요.'); location.hash = 'members'; return; }
+  const [py, pm] = prevYm(S.y, S.m);
+  let prev = [];
+  try { prev = ((await readDoc(monthPath(py, pm))) || {}).masses || []; } catch { prev = []; }
+  const locked = ms.filter(x => x.locked).length;
+  const empty = ms.reduce((s, x) => s + positionsOf(x).filter(p => !x[p.field]).length, 0);
+  let mode = empty === ms.reduce((s, x) => s + positionsOf(x).length, 0) ? 'all' : 'fill';
+  let result = null;
+  const run = () => { result = assignMonth({ masses: ms, members: S.members, prevMasses: prev, weights: S.config.weights, mode, trials: 50 }); draw(); };
+  const draw = () => {
+    const st = result.stats;
+    const rows = sortByName(considered(S.members).slice()).map(m => ({ m, r: st.per[m.id] })).map(({ m, r }) => {
+      const slots = Object.entries(r.slots).sort().map(([k, n]) => `<span class="pill wk">${DOW_KO[k.split('@')[0]]} ${esc(timeLabel(k.split('@')[1]))}${n > 1 ? ' ×' + n : ''}</span>`).join('');
+      return `<tr><td>${esc(m.name)}</td><td class="num">${r.weekday}</td><td class="num">${r.weekend}</td><td class="num"><b>${r.total}</b></td><td><div class="chips">${slots || '<span class="muted">-</span>'}</div></td></tr>`;
+    });
+    $('#layer .panel').innerHTML = `
+      <h3>${S.y}년 ${S.m}월 봉사자 자동배정</h3>
+      <div class="checks" style="flex-direction:column;align-items:flex-start">
+        <label><input type="radio" name="am" value="fill" ${mode === 'fill' ? 'checked' : ''}> 빈 자리만 채우기 (현재 빈 자리 ${empty}개)</label>
+        <label><input type="radio" name="am" value="all" ${mode === 'all' ? 'checked' : ''}> 고정된 미사(${locked}건)를 빼고 전부 다시 배정</label>
+      </div>
+      <div class="stat3 num"><div class="${st.unfilled.length ? 'bad' : ''}"><span class="note">남는 빈 자리</span><b>${st.unfilled.length}</b></div><div><span class="note">1인당 배정</span><b>${st.min}~${st.max}회</b></div><div><span class="note">평균</span><b>${st.mean.toFixed(1)}회</b></div></div>
+      ${st.unfilled.length ? `<div class="note warn">조건에 맞는 사람이 없어 비워 둔 자리: ${st.unfilled.slice(0, 12).map(u => `${Number(u.date.slice(5, 7))}/${Number(u.date.slice(8))} ${timeLabel(u.time)} ${u.label}`).map(esc).join(', ')}${st.unfilled.length > 12 ? ` 외 ${st.unfilled.length - 12}개` : ''}</div>` : ''}
+      <div class="scroll"><table class="grid"><thead><tr><th>이름</th><th>평일</th><th>주말</th><th>합계</th><th>주말 시간대</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>
+      <p class="note">50번 시도해 배정 횟수가 가장 고르고 주말 시간대가 덜 겹치는 결과를 골랐습니다. 지난달(${pm}월) 배정 횟수도 반영합니다.</p>
+      <div class="actions"><button class="btn left" id="aAgain">다시 돌리기</button><button class="btn" data-act="close">취소</button><button class="btn primary" id="aOk">이대로 적용</button></div>`;
+    document.querySelectorAll('input[name=am]').forEach(r => r.onchange = e => { mode = e.target.value; run(); });
+    $('#aAgain').onclick = run;
+    $('#aOk').onclick = async () => { closeLayer(); await saveMonth(result.masses).catch(() => {}); toast('배정을 적용했습니다.'); };
+  };
+  openLayer('<p>배정 계산 중…</p>'); setTimeout(run, 20);
+}
+
+/* ---------- 멤버 ---------- */
+function renderMembers() {
+  const counts = monthCounts(S.month.masses || []);
+  const q = S.memberQ.trim();
+  const list = sortByName(liveMembers().filter(m =>
+    (!q || m.name.includes(q) || (m.baptismalName || '').includes(q)) &&
+    (!S.memberRole || (m.roles || []).includes(S.memberRole)) &&
+    (!S.memberSlot || (m.availability || []).includes(S.memberSlot))));
+  const all = liveMembers();
+  const ed = canEdit();
+  const rows = list.map(m => {
+    const c = counts[m.id] || { wd: 0, we: 0 };
+    const sp = m.spouseId && memberById(m.spouseId);
+    return `<tr class="click" data-member="${esc(m.id)}"><td><b>${esc(m.name)}</b></td><td>${esc(m.baptismalName || '')}</td>
+      <td><div class="chips">${(m.roles || []).map(r => `<span class="pill">${ROLES[r]}</span>`).join('')}</div></td>
+      <td>${sp && !sp.deleted ? esc(sp.name) : '<span class="muted">-</span>'}</td>
+      <td><div class="chips">${SLOTS.filter(s => (m.availability || []).includes(s)).map(s => `<span class="pill${s === 'WEEKEND' ? ' wk' : ' grey'}">${SLOT_LABEL[s]}</span>`).join('')}</div></td>
+      <td class="num">${(m.absences || []).filter(d => d >= today).length || '<span class="muted">-</span>'}</td>
+      <td class="num">${c.wd + c.we} <span class="muted">(평일 ${c.wd} · 주말 ${c.we})</span></td>
+      <td>${m.active === false ? '<span class="pill grey">휴식</span>' : '<span class="pill">활동</span>'}</td></tr>`;
+  }).join('');
+  const nC = all.filter(m => m.active !== false && (m.roles || []).includes('COMMENTATOR')).length;
+  const nR = all.filter(m => m.active !== false && (m.roles || []).includes('READER')).length;
+  const nCouple = all.filter(m => m.spouseId && m.active !== false).length / 2;
+  $('#view').innerHTML = `
+  <div class="toolbar">
+    <input type="search" id="keep-mq" placeholder="이름·세례명 검색" value="${esc(S.memberQ)}" aria-label="멤버 검색">
+    <select id="mRole" aria-label="역할 필터"><option value="">역할 전체</option><option value="COMMENTATOR">해설자</option><option value="READER">독서자</option></select>
+    <select id="mSlot" aria-label="시간대 필터"><option value="">시간대 전체</option>${SLOTS.map(s => `<option value="${s}">${SLOT_LABEL[s]}</option>`).join('')}</select>
+    <span class="grow"></span>
+    ${ed ? '<button class="btn primary" data-act="addmember">멤버 추가</button>' : ''}
+  </div>
+  <div class="summary num"><span>멤버 <b>${all.length}</b>명</span><span>해설자 <b>${nC}</b></span><span>독서자 <b>${nR}</b></span><span>부부독서 <b>${Math.floor(nCouple)}</b>쌍</span><span class="muted">배정 횟수는 ${S.y}년 ${S.m}월 기준</span></div>
+  ${!S.membersLoaded ? '<div class="empty"><p>멤버를 불러오는 중입니다…</p></div>' : all.length === 0 ? `<div class="empty"><p>등록된 멤버가 없습니다.</p>${ed ? '<button class="btn primary" data-act="addmember">첫 멤버 추가</button>' : ''}</div>` :
+    `<div class="tablewrap"><table class="grid"><thead><tr><th>이름</th><th>세례명</th><th>역할</th><th>배우자</th><th>배정 가능 시간</th><th>예정 불참일</th><th>이번 달 배정</th><th>상태</th></tr></thead><tbody>${rows || '<tr><td colspan="8" class="muted">조건에 맞는 멤버가 없습니다.</td></tr>'}</tbody></table></div>`}`;
+  $('#mRole').value = S.memberRole; $('#mSlot').value = S.memberSlot;
+}
+function openMember(id) {
+  const ed = canEdit();
+  const orig = id ? memberById(id) : null;
+  const m = orig ? JSON.parse(JSON.stringify(orig)) : { id: makeId(), name: '', baptismalName: '', roles: [], spouseId: null, availability: [], active: true, memo: '', absences: [] };
+  m.absences ||= [];
+  const draw = () => {
+    const spouses = sortByName(liveMembers().filter(x => x.id !== m.id));
+    $('#layer .panel').innerHTML = `
+      <h3>${orig ? (ed ? '멤버 수정' : '멤버 정보') : '멤버 추가'}</h3>
+      <div class="two"><div class="row"><label for="m-name">이름 (필수)</label><input type="text" id="m-name" value="${esc(m.name)}" ${ed ? '' : 'disabled'}></div>
+      <div class="row"><label for="m-bap">세례명</label><input type="text" id="m-bap" value="${esc(m.baptismalName || '')}" ${ed ? '' : 'disabled'}></div></div>
+      <div class="row"><span class="lbl">역할 (하나 이상)</span><div class="checks">${Object.entries(ROLES).map(([k, v]) => `<label><input type="checkbox" name="m-role" value="${k}" ${m.roles.includes(k) ? 'checked' : ''} ${ed ? '' : 'disabled'}> ${v}</label>`).join('')}</div></div>
+      <div class="row"><span class="lbl">배정 가능 시간 (여러 개 선택)</span><div class="checks">${SLOTS.map(s => `<label><input type="checkbox" name="m-slot" value="${s}" ${m.availability.includes(s) ? 'checked' : ''} ${ed ? '' : 'disabled'}> ${SLOT_LABEL[s]}</label>`).join('')}</div></div>
+      <div class="row"><label for="m-sp">배우자 (부부독서 상대)</label><select id="m-sp" ${ed ? '' : 'disabled'}><option value="">없음</option>${spouses.map(x => memberOption(x, x.spouseId && x.spouseId !== m.id ? ` — 현재 ${nameOf(x.spouseId)}의 배우자` : '')).join('')}</select>
+        <span class="note">부부는 같은 미사에 함께 배정됩니다. 주말은 제1·제2독서, 평일은 해설+독서(한 명이 해설자일 때).</span></div>
+      <div class="row"><span class="lbl">불참일 (휴가 등)</span>
+        <div class="chips">${m.absences.slice().sort().map(d => `<span class="pill grey num">${esc(d)}${ed ? ` <button class="addbtn" data-rmabs="${esc(d)}" aria-label="${esc(d)} 불참 취소">×</button>` : ''}</span>`).join('') || '<span class="muted">없음</span>'}</div>
+        ${ed ? '<div style="display:flex;gap:6px;flex-wrap:wrap"><input type="date" id="m-abs" aria-label="불참일 날짜"><button class="btn" id="m-absadd">불참일 추가</button></div>' : ''}</div>
+      <div class="row"><label for="m-memo">메모</label><input type="text" id="m-memo" value="${esc(m.memo || '')}" ${ed ? '' : 'disabled'}></div>
+      <div class="checks"><label><input type="checkbox" id="m-active" ${m.active !== false ? 'checked' : ''} ${ed ? '' : 'disabled'}> 활동 중 (끄면 자동배정에서 빠짐)</label></div>
+      <div class="actions">${ed && orig ? '<button class="btn danger left" id="m-del">삭제</button>' : ''}<button class="btn" data-act="close">${ed ? '취소' : '닫기'}</button>${ed ? '<button class="btn primary" id="m-save">저장</button>' : ''}</div>`;
+    $('#m-sp').value = m.spouseId || '';
+    if (!ed) return;
+    const grab = () => {
+      m.name = $('#m-name').value.trim(); m.baptismalName = $('#m-bap').value.trim(); m.memo = $('#m-memo').value.trim();
+      m.roles = [...document.querySelectorAll('input[name=m-role]:checked')].map(x => x.value);
+      m.availability = [...document.querySelectorAll('input[name=m-slot]:checked')].map(x => x.value);
+      m.spouseId = $('#m-sp').value || null; m.active = $('#m-active').checked;
+    };
+    $('#m-absadd').onclick = () => { grab(); const v = $('#m-abs').value; if (v && !m.absences.includes(v)) m.absences.push(v); draw(); };
+    document.querySelectorAll('[data-rmabs]').forEach(b => b.onclick = () => { grab(); m.absences = m.absences.filter(d => d !== b.dataset.rmabs); draw(); });
+    $('#m-save').onclick = async () => {
+      grab();
+      if (!m.name) { toast('이름을 입력해 주세요.'); $('#m-name').focus(); return; }
+      if (!m.roles.length) { toast('역할을 하나 이상 선택해 주세요.'); return; }
+      const list = S.members.map(x => ({ ...x }));
+      const oldSp = orig ? orig.spouseId : null;
+      if (oldSp && oldSp !== m.spouseId) { const o = list.find(x => x.id === oldSp); if (o && o.spouseId === m.id) o.spouseId = null; }
+      if (m.spouseId) { const n = list.find(x => x.id === m.spouseId); if (n) { if (n.spouseId && n.spouseId !== m.id) { const o2 = list.find(x => x.id === n.spouseId); if (o2) o2.spouseId = null; } n.spouseId = m.id; } }
+      const i = list.findIndex(x => x.id === m.id); if (i >= 0) list[i] = m; else list.push(m);
+      closeLayer(); await saveMembers(list).catch(() => {}); toast(orig ? '저장했습니다.' : `${m.name} 님을 추가했습니다.`);
+    };
+    if ($('#m-del')) $('#m-del').onclick = () => deleteMember(m.id);
+  };
+  openLayer('', false); draw();
+}
+async function futureMonths() {
+  if (!S.db) return Object.keys(local).filter(k => k.startsWith('months/') && k.slice(7) >= ymKey(TY, TM)).map(k => ({ path: k, data: local[k] }));
+  const snap = await S.db.collection('months').get();
+  return snap.docs.filter(d => d.id >= ymKey(TY, TM)).map(d => ({ path: 'months/' + d.id, data: d.data() }));
+}
+async function deleteMember(id) {
+  const m = memberById(id); if (!m) return;
+  openLayer('<p>미래 배정을 확인하는 중…</p>');
+  let months = []; try { months = await futureMonths(); } catch { months = []; }
+  const hits = []; for (const mo of months) for (const ms of mo.data.masses || []) if (ms.date >= today && positionsOf(ms).some(p => ms[p.field] === id)) hits.push(ms);
+  confirmBox(`${m.name} 님 삭제`, `<p>${hits.length ? `오늘 이후 <b>${hits.length}</b>개 미사에 배정돼 있습니다. 삭제하면 그 자리는 비워집니다.` : '오늘 이후 배정은 없습니다.'} 지난 배정 기록의 이름은 남습니다.</p><p class="note">잠시 쉬는 경우라면 삭제 대신 '활동 중'을 끄세요.</p>`, '삭제', async () => {
+    const list = S.members.map(x => ({ ...x }));
+    for (const x of list) { if (x.id === id) { x.deleted = true; x.active = false; x.spouseId = null; } else if (x.spouseId === id) x.spouseId = null; }
+    await saveMembers(list).catch(() => {});
+    for (const mo of months) {
+      let changed = false;
+      const masses = (mo.data.masses || []).map(ms => { const c = { ...ms }; if (c.date >= today) for (const p of positionsOf(c)) if (c[p.field] === id) { c[p.field] = null; changed = true; } return c; });
+      if (changed) { const [yy, mm] = mo.path.slice(7).split('-').map(Number); await saveMonth(masses, yy, mm).catch(() => {}); }
+    }
+    toast('삭제했습니다.');
+  });
+}
+
+/* ---------- 내 배정 보기 ---------- */
+async function loadLookup() {
+  const id = S.lookupId; if (!id) { S.lookupData = null; render(); return; }
+  S.lookupData = 'loading'; render();
+  const [ny, nm] = nextYm(TY, TM);
+  try {
+    const a = (await readDoc(monthPath(TY, TM))) || {}; const b = (await readDoc(monthPath(ny, nm))) || {};
+    if (S.lookupId !== id) return;
+    const rows = [];
+    for (const ms of [...(a.masses || []), ...(b.masses || [])]) for (const p of positionsOf(ms)) if (ms[p.field] === id) rows.push({ ms, p });
+    rows.sort((x, y) => (x.ms.date + x.ms.time).localeCompare(y.ms.date + y.ms.time));
+    S.lookupData = rows;
+  } catch { S.lookupData = 'error'; }
+  render();
+}
+function renderLookup() {
+  const opts = sortByName(liveMembers()).map(m => memberOption(m)).join('');
+  const [ny, nm] = nextYm(TY, TM);
+  const m = memberById(S.lookupId);
+  let body = '<div class="empty"><p>이름을 고르면 이번 달과 다음 달 배정을 보여 줍니다.</p></div>';
+  if (S.lookupData === 'loading') body = '<div class="empty"><p>불러오는 중…</p></div>';
+  else if (S.lookupData === 'error') body = '<div class="empty"><p>배정을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</p></div>';
+  else if (Array.isArray(S.lookupData)) {
+    const rows = S.lookupData;
+    const up = rows.filter(r => r.ms.date >= today);
+    body = rows.length ? `<div class="summary num"><span><b>${esc(m?.name)}</b> 님</span><span>${TM}월·${nm}월 배정 <b>${rows.length}</b>회</span><span>남은 배정 <b>${up.length}</b>회</span><span class="grow"></span><button class="btn" data-act="copylookup">텍스트 복사</button></div>
+      <div class="tablewrap"><table class="grid"><thead><tr><th>날짜</th><th>시간</th><th>미사</th><th>역할</th><th>함께 봉사</th></tr></thead><tbody>${rows.map(({ ms, p }) => `<tr${ms.date < today ? ' class="muted"' : ''}><td class="num">${Number(ms.date.slice(5, 7))}/${Number(ms.date.slice(8))} (${DOW_KO[dowOf(ms.date)]})</td><td>${esc(timeLabel(ms.time))}</td><td>${esc(ms.name)}</td><td><span class="pill${p.role === 'READER' ? ' wk' : ''}">${p.label}</span></td><td>${positionsOf(ms).filter(q => q.field !== p.field && ms[q.field]).map(q => esc(nameOf(ms[q.field])) + ` <span class="muted">${q.label}</span>`).join(', ')}</td></tr>`).join('')}</tbody></table></div>`
+      : `<div class="empty"><p>${TM}월·${nm}월에 ${esc(m?.name || '')} 님의 배정이 없습니다.</p></div>`;
+  }
+  $('#view').innerHTML = `<div class="toolbar"><label for="lkSel" class="muted">이름</label><select id="lkSel"><option value="">선택하세요</option>${opts}</select><span class="note">${TY}년 ${TM}월 ~ ${ny}년 ${nm}월</span></div>${body}`;
+  $('#lkSel').value = S.lookupId;
+}
+
+/* ---------- 설정 ---------- */
+function renderConfig() {
+  const ed = canEdit();
+  const T = S.config.templates.slice().sort((a, b) => ((a.dow + 6) % 7) - ((b.dow + 6) % 7) || a.time.localeCompare(b.time));
+  const W = S.config.weights;
+  const dis = ed ? '' : 'disabled';
+  const tRows = T.map((t, i) => `<tr data-ti="${i}"><td><select class="t-dow" ${dis}>${DOW_KO.map((d, k) => `<option value="${k}" ${Number(t.dow) === k ? 'selected' : ''}>${d}</option>`).join('')}</select></td>
+    <td><input type="time" class="t-time" value="${esc(t.time)}" ${dis}></td>
+    <td><select class="t-type" ${dis}><option value="WEEKDAY" ${t.type !== 'WEEKEND' ? 'selected' : ''}>평일</option><option value="WEEKEND" ${t.type === 'WEEKEND' ? 'selected' : ''}>주말</option></select></td>
+    <td><select class="t-slot" ${dis}>${SLOTS.map(s => `<option value="${s}" ${t.slot === s ? 'selected' : ''}>${SLOT_LABEL[s]}</option>`).join('')}</select></td>
+    <td><input type="text" class="t-name" value="${esc(t.name)}" ${dis}></td>${ed ? '<td><button class="btn icon t-del" aria-label="행 삭제">×</button></td>' : ''}</tr>`).join('');
+  const sampleN = S.members.filter(m => m.sample && !m.deleted).length;
+  $('#view').innerHTML = `<div class="cardgrid">
+    <section class="card" style="grid-column: 1 / -1">
+      <h3>요일별 미사 시간표 <span class="muted" style="font-weight:400">· 자동생성에 쓰임 · ${T.length}개</span></h3>
+      <div class="tablewrap"><table class="grid" id="tTable"><thead><tr><th>요일</th><th>시간</th><th>구분</th><th>봉사 가능 시간대 기준</th><th>미사명</th>${ed ? '<th></th>' : ''}</tr></thead><tbody>${tRows}</tbody></table></div>
+      ${ed ? '<div class="actions"><button class="btn left" id="tReset">처음 시간표로 되돌리기</button><button class="btn" id="tAdd">행 추가</button><button class="btn primary" id="tSave">시간표 저장</button></div>' : ''}
+    </section>
+    <section class="card">
+      <h3>자동배정 가중치</h3>
+      <p class="note">값이 클수록 그 조건을 더 강하게 피합니다. 보통은 바꿀 필요가 없습니다.</p>
+      ${[['count', '이번 달 배정 횟수 (고르게)'], ['sameSlot', '주말 같은 시간대 반복'], ['prevWeek', '지난주와 같은 주말 시간대'], ['sameWeek', '같은 주에 두 번 배정'], ['prevMonth', '지난달 많이 한 사람 덜 배정']].map(([k, l]) => `<div class="two" style="align-items:center"><label for="w-${k}">${l}</label><input type="number" id="w-${k}" min="0" max="1000" value="${Number(W[k])}" ${dis}></div>`).join('')}
+      ${ed ? '<div class="actions"><button class="btn primary" id="wSave">가중치 저장</button></div>' : ''}
+    </section>
+    <section class="card">
+      <h3>데이터 백업</h3>
+      <p class="note">멤버, 시간표, 전체 미사 일정을 JSON 텍스트로 복사해 보관할 수 있습니다.</p>
+      <div class="actions" style="justify-content:flex-start"><button class="btn" id="dExport">백업 텍스트 복사</button>${ed ? '<button class="btn" id="dImport">백업에서 복원</button>' : ''}</div>
+      ${ed && sampleN ? `<hr style="border:0;border-top:1px solid var(--line);width:100%"><h3>예시 데이터</h3><p class="note">예시 멤버 ${sampleN}명을 지우고 그 배정을 비웁니다. 직접 등록한 멤버는 그대로 둡니다.</p><div class="actions" style="justify-content:flex-start"><button class="btn danger" id="dSample">예시 데이터 모두 지우기</button></div>` : ''}
+    </section></div>`;
+  if (!ed) { $('#dExport').onclick = exportData; return; }
+  const readT = () => [...document.querySelectorAll('#tTable tbody tr')].map(tr => {
+    const type = tr.querySelector('.t-type').value; const time = tr.querySelector('.t-time').value || '10:00';
+    return { dow: Number(tr.querySelector('.t-dow').value), time, type, slot: type === 'WEEKEND' ? 'WEEKEND' : (tr.querySelector('.t-slot').value === 'WEEKEND' ? slotFromTime(time) : tr.querySelector('.t-slot').value), name: tr.querySelector('.t-name').value.trim() || (type === 'WEEKEND' ? '주일미사' : '평일미사') };
+  });
+  document.querySelectorAll('.t-del').forEach(b => b.onclick = () => { const t = readT(); t.splice(Number(b.closest('tr').dataset.ti), 1); S.config = { ...S.config, templates: t }; render(); });
+  $('#tAdd').onclick = () => { S.config = { ...S.config, templates: [...readT(), { dow: 1, time: '10:00', type: 'WEEKDAY', slot: 'WEEKDAY_1000', name: '평일미사' }] }; render(); };
+  $('#tReset').onclick = () => { S.config = { ...S.config, templates: DEFAULT_TEMPLATES }; render(); toast('처음 시간표를 불러왔습니다. 저장을 눌러야 반영됩니다.'); };
+  $('#tSave').onclick = async () => { const t = readT(); S.config = { ...S.config, templates: t }; await writeDoc('app/config', { templates: t, weights: S.config.weights }).catch(() => {}); toast('시간표를 저장했습니다.'); };
+  $('#wSave').onclick = async () => { const w = {}; for (const k of Object.keys(DEFAULT_WEIGHTS)) w[k] = Math.max(0, Number($('#w-' + k).value) || 0); S.config = { ...S.config, weights: w }; await writeDoc('app/config', { templates: S.config.templates, weights: w }).catch(() => {}); toast('가중치를 저장했습니다.'); };
+  $('#dExport').onclick = exportData;
+  $('#dImport').onclick = () => {
+    openLayer(`<h3>백업에서 복원</h3><p class="note warn">멤버와 시간표, 백업에 들어 있는 달의 일정을 백업 내용으로 바꿉니다.</p><textarea class="copybox" id="impBox" placeholder="백업 텍스트를 붙여넣으세요"></textarea><div class="actions"><button class="btn" data-act="close">취소</button><button class="btn danger" id="impOk">복원</button></div>`);
+    $('#impOk').onclick = async () => {
+      let d; try { d = JSON.parse($('#impBox').value); } catch { toast('백업 텍스트 형식이 올바르지 않습니다.'); return; }
+      if (!d || !Array.isArray(d.members)) { toast('멤버 목록이 없는 백업입니다.'); return; }
+      closeLayer();
+      await saveMembers(d.members).catch(() => {});
+      if (d.config) await writeDoc('app/config', d.config).catch(() => {});
+      for (const [k, v] of Object.entries(d.months || {})) { const [yy, mm] = k.split('-').map(Number); if (yy && mm && Array.isArray(v.masses)) await saveMonth(v.masses, yy, mm).catch(() => {}); }
+      toast('복원했습니다.');
+    };
+  };
+  if ($('#dSample')) $('#dSample').onclick = () => confirmBox('예시 데이터 지우기', `<p>예시 멤버 ${sampleN}명을 지우고, 모든 달의 일정에서 이들의 배정을 비웁니다. 미사 일정 자체는 남습니다.</p>`, '모두 지우기', async () => {
+    await saveMembers(S.members.filter(m => !m.sample)).catch(() => {});
+    const sids = new Set(S.members.filter(m => m.sample).map(m => m.id));
+    const ms = await futureMonthsAll();
+    for (const mo of ms) {
+      if (mo.data.sample) { if (S.db) await S.db.doc(mo.path).delete().catch(() => {}); else delete local[mo.path]; continue; }
+      let changed = false;
+      const masses = (mo.data.masses || []).map(x => { const c = { ...x }; for (const p of positionsOf(c)) if (sids.has(c[p.field])) { c[p.field] = null; changed = true; } return c; });
+      if (changed) { const [yy, mm] = mo.path.slice(7).split('-').map(Number); await saveMonth(masses, yy, mm).catch(() => {}); }
+    }
+    subscribeMonth(); toast('예시 데이터를 지웠습니다.');
+  });
+}
+async function futureMonthsAll() {
+  if (!S.db) return Object.keys(local).filter(k => k.startsWith('months/')).map(k => ({ path: k, data: local[k] }));
+  const snap = await S.db.collection('months').get();
+  return snap.docs.map(d => ({ path: 'months/' + d.id, data: d.data() }));
+}
+async function exportData() {
+  let months = {}; try { for (const mo of await futureMonthsAll()) months[mo.path.slice(7)] = { masses: mo.data.masses || [] }; } catch {}
+  copyText(JSON.stringify({ exportedAt: today, members: S.members, config: S.config, months }));
+}
+
+/* ---------- 이벤트 ---------- */
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-act],[data-mass],[data-add],[data-member]'); if (!t) return;
+  if (t.dataset.mass) { openMass(t.dataset.mass); return; }
+  if (t.dataset.add) { openMass(null, t.dataset.add); return; }
+  if (t.dataset.member) { openMember(t.dataset.member); return; }
+  const a = t.dataset.act;
+  if (a === 'close') closeLayer();
+  else if (a === 'prev' || a === 'next' || a === 'thismonth') {
+    if (a === 'thismonth') { S.y = TY; S.m = TM; } else { [S.y, S.m] = (a === 'prev' ? prevYm : nextYm)(S.y, S.m); }
+    subscribeMonth(); render();
+  }
+  else if (a === 'mode-grid') { S.calMode = 'grid'; render(); }
+  else if (a === 'mode-list') { S.calMode = 'list'; render(); }
+  else if (a === 'gen') openGenerate();
+  else if (a === 'assign') openAssign();
+  else if (a === 'copylist') copyText(listText(S.month.masses || []));
+  else if (a === 'addmember') openMember(null);
+  else if (a === 'copylookup') { const m = memberById(S.lookupId); copyText(`[${m?.name} 님 미사 봉사 일정]\n` + S.lookupData.map(({ ms, p }) => `${Number(ms.date.slice(5, 7))}/${Number(ms.date.slice(8))} (${DOW_KO[dowOf(ms.date)]}) ${timeLabel(ms.time)} ${ms.name} - ${p.label}`).join('\n')); }
+});
+document.addEventListener('change', e => {
+  const id = e.target.id;
+  if (id === 'hlSel') { S.highlight = e.target.value; render(); }
+  else if (id === 'mRole') { S.memberRole = e.target.value; render(); }
+  else if (id === 'mSlot') { S.memberSlot = e.target.value; render(); }
+  else if (id === 'lkSel') { S.lookupId = e.target.value; loadLookup(); }
+});
+document.addEventListener('input', e => { if (e.target.id === 'keep-mq') { S.memberQ = e.target.value; render(); } });
+
+/* ---------- 시작 ---------- */
+async function init() {
+  route();
+  let api = null;
+  for (let i = 0; i < 50 && !(window.claude && window.claude.use); i++) await new Promise(r => setTimeout(r, 100));
+  if (window.claude && window.claude.use) {
+    try {
+      const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+      api = db; S.user = user;
+      if (user) {
+        try {
+          const own = await user.isOwner(); const ce = await user.canEdit();
+          if (own === false && ce === false) S.canWrite = false;
+        } catch {}
+      }
+    } catch { api = null; }
+  }
+  if (api) { S.db = api; S.mode = 'db'; subscribeStatic(); subscribeMonth(); }
+  else { S.mode = 'local'; S.membersLoaded = true; S.configLoaded = true; S.monthLoaded = true; }
+  renderWho(); render();
+}
+init();
+})();
+</script>
+</body>
+</html>
